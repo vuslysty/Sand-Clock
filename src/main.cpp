@@ -14,6 +14,18 @@ Vector2Int* _buffer = (Vector2Int*)malloc(4 * sizeof(Vector2Int));
 
 LinkedList<Cell*> _cells = LinkedList<Cell*>();
 
+Vector2 AngleToDirection(float degrees)
+{
+  // Перетворення градусів в радіани
+  float angleRadians = degrees * DEG_TO_RAD;
+
+  // Визначення компонент вектора за допомогою тригонометричних функцій
+  float x = cosf(angleRadians);
+  float y = sinf(angleRadians);
+
+  return Vector2(x, y).normalized();
+}
+
 class RectMap
 {
   Cell ***_array;
@@ -459,11 +471,55 @@ void setup()
       _map.SetCellToPos(cell, pos);
     }
   }
+
+  Serial.begin(9600);
 }
+
+float angle = 90;
 
 void loop()
 {
-  
+  for (size_t i = 0; i < 10; i++)
+  {
+    long time = millis();
+    Simulate(AngleToDirection(angle));
+    long dif = millis() - time;
+    Serial.println(dif);
+  }
+
+  angle += 10;
+  return;
+
+
+  for (size_t i = 0; i < 10; i++)
+  {
+    Simulate(AngleToDirection(angle));
+
+    Serial.println("asdf");
+    // return;
+
+    for (int y = 16; y >= -1; y--)
+    {
+      for (int x = -1; x <= 16; x++)
+      {
+        Vector2Int pos = Vector2Int(x, y);
+
+        if (!_map.Contains(pos))
+        {
+          Serial.print('#');
+          continue;
+        }
+
+        Serial.print(_map.GetCell(pos) == nullptr ? ' ' : 'X');
+      }
+
+      Serial.println();
+    }
+
+    delay(1000);
+  }
+
+  angle += 45;
 }
 
 // put function definitions here:

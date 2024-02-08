@@ -53,7 +53,7 @@ struct Vector2
 
   float length() const
   {
-    return sqrt(x * x + y * y);
+    return sqrtf(x * x + y * y);
   }
 
   // Метод для нормалізації вектора
@@ -64,6 +64,15 @@ struct Vector2
     {
       x /= len;
       y /= len;
+    }
+  }
+
+  Vector2 normalized()
+  {
+    float len = length();
+    if (len != 0)
+    {
+      return Vector2(x / len, y / len);
     }
   }
 
