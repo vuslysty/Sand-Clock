@@ -5,14 +5,79 @@
 // put function declarations here:
 int myFunction(int, int);
 
-const Vector2Int quadrant1[] = { Vector2Int(1, 0), Vector2Int(1, 1), Vector2Int(0, 1), Vector2Int(-1, 1), Vector2Int(1, -1) };
-const Vector2Int quadrant2[] = { Vector2Int(0, 1), Vector2Int(-1, 1), Vector2Int(-1, 0), Vector2Int(-1, -1), Vector2Int(1, 1) };
-const Vector2Int quadrant3[] = { Vector2Int(-1, 0), Vector2Int(-1, -1), Vector2Int(0, -1), Vector2Int(1, -1), Vector2Int(-1, 1) };
-const Vector2Int quadrant4[] = { Vector2Int(0, -1), Vector2Int(1, -1), Vector2Int(1, 0), Vector2Int(1, 1), Vector2Int(-1, -1) };
+const Vector2Int _directions[] =
+{
+  Vector2Int(1, 0),
+  Vector2Int(1, 1),
+  Vector2Int(0, 1),
+  Vector2Int(-1, 1),
+  Vector2Int(-1, 0),
+  Vector2Int(-1, -1),
+  Vector2Int(0, -1),
+  Vector2Int(1, -1),
+};
 
 Vector2Int* _buffer = (Vector2Int*)malloc(4 * sizeof(Vector2Int));
 
 LinkedList<Cell*> _cells = LinkedList<Cell*>();
+
+uint32_t** _bakeData = nullptr;
+int bakeDataX;
+int bakeDataY;
+
+Vector2Int GetBakeIndex(Vector2Int pos)
+{
+  return Vector2Int(pos.x / 8, pos.y / 4);
+}
+
+int GetShift(Vector2Int pos)
+{
+  return pos.x % 8 + (pos.y % 4) * 8;
+}
+
+void BakeData()
+{
+  if (_bakeData == nullptr)
+  {
+    Vector2Int min = Vector2Int(0, 0);
+    Vector2Int max = Vector2Int(15, 15);
+
+    bakeDataX = max.x - min.x + 1;
+    bakeDataY = max.y - min.y + 1;
+
+    _bakeData = new uint32_t*[bakeDataX];
+
+    for (int i = 0; i < bakeDataX; i++)
+    {
+      _bakeData[i] = new uint32_t[bakeDataY];
+    }
+  }
+
+  for (int x = 0; x < bakeDataX; x++)
+  {
+    for (int y = 0; y < bakeDataY; y++)
+    {
+        _bakeData[x][y] = 0;
+    }
+  }
+
+  for (int i = 0; i < _cells.size(); i++)
+  {
+    Vector2Int bakeIndex = GetBakeIndex(_cells[i]->Position);
+    uint32_t value = _bakeData[bakeIndex.x][bakeIndex.y];
+
+    value |= (uint32_t)(1 << GetShift(_cells[i]->Position));
+    _bakeData[bakeIndex.x][bakeIndex.y] = value;
+  }
+}
+
+bool HasInBakeDataAt(Vector2Int pos)
+{
+  Vector2Int bakeIndex = GetBakeIndex(pos);
+  uint32_t value = _bakeData[bakeIndex.x][bakeIndex.y];
+
+  return (value & (1 << GetShift(pos))) != 0;
+}
 
 Vector2 AngleToDirection(float degrees)
 {
@@ -214,25 +279,30 @@ Vector2Int GetNextPointWhenFalling(Vector2Int currentPoint, Vector2Int startFall
   return Vector2Int();
 }
 
-const Vector2Int* GetQuadrantForAngle(float angleInDegrees)
+const int GetIndexForAngle(float angleInDegrees)
 {
   if (angleInDegrees >= 0 && angleInDegrees < 90)
-    return quadrant1;
+    return 1;
   if (angleInDegrees >= 90 && angleInDegrees < 180)
-    return quadrant2;
+    return 3;
   if (angleInDegrees >= 180 && angleInDegrees < 270)
-    return quadrant3;
+    return 5;
   if (angleInDegrees >= 270 && angleInDegrees < 360)
-    return quadrant4;
+    return 7;
 
-  return nullptr;
+  return 1;
+}
+
+inline int GetIndexOffset(int index, int offset)
+{
+  return ((index + offset) % 8 + 8) % 8;
 }
 
 int GetSortedMovePoints(float angleInDegrees)
 {
   const float N = 1;
 
-  const Vector2Int* quadrant = GetQuadrantForAngle(angleInDegrees);
+  const int quadrantIndex = GetIndexForAngle(angleInDegrees);
   int angleFrom0To90 = ((int)angleInDegrees) % 90;
 
   float distToFirst = abs(angleInDegrees - 0);
@@ -245,13 +315,13 @@ int GetSortedMovePoints(float angleInDegrees)
   {
     if (distToFirst < distToSecond)
     {
-      _buffer[0] = quadrant[0];
-      _buffer[1] = quadrant[1];
+      _buffer[0] = _directions[GetIndexOffset(quadrantIndex, -1)];
+      _buffer[1] = _directions[quadrantIndex];
     }
     else
     {
-      _buffer[0] = quadrant[1];
-      _buffer[1] = quadrant[0];
+      _buffer[0] = _directions[quadrantIndex];
+      _buffer[1] = _directions[GetIndexOffset(quadrantIndex, -1)];
     }
 
     amount = 2;
@@ -260,13 +330,13 @@ int GetSortedMovePoints(float angleInDegrees)
   {
     if (distToSecond < distToThird)
     {
-      _buffer[0] = quadrant[1];
-      _buffer[1] = quadrant[2];
+      _buffer[0] = _directions[quadrantIndex];
+      _buffer[1] = _directions[GetIndexOffset(quadrantIndex, 1)];
     }
     else
     {
-      _buffer[0] = quadrant[2];
-      _buffer[1] = quadrant[1];
+      _buffer[0] = _directions[GetIndexOffset(quadrantIndex, 1)];
+      _buffer[1] = _directions[quadrantIndex];
     }
 
     amount = 2;
@@ -277,31 +347,31 @@ int GetSortedMovePoints(float angleInDegrees)
     {
       if (distToSecond < distToThird)
       {
-        _buffer[0] = quadrant[1];
-        _buffer[1] = quadrant[2];
+        _buffer[0] = _directions[quadrantIndex];
+        _buffer[1] = _directions[GetIndexOffset(quadrantIndex, 1)];
       }
       else
       {
-        _buffer[0] = quadrant[2];
-        _buffer[1] = quadrant[1];
+        _buffer[0] = _directions[GetIndexOffset(quadrantIndex, 1)];
+        _buffer[1] = _directions[quadrantIndex];
       }
 
-      _buffer[2] = quadrant[0];
+      _buffer[2] = _directions[GetIndexOffset(quadrantIndex, -1)];
     }
     else
     {
       if (distToFirst < distToSecond)
       {
-        _buffer[0] = quadrant[0];
-        _buffer[1] = quadrant[1];
+        _buffer[0] = _directions[GetIndexOffset(quadrantIndex, -1)];
+        _buffer[1] = _directions[quadrantIndex];
       }
       else
       {
-        _buffer[0] = quadrant[1];
-        _buffer[1] = quadrant[0];
+        _buffer[0] = _directions[quadrantIndex];
+        _buffer[1] = _directions[GetIndexOffset(quadrantIndex, -1)];
       }
 
-      _buffer[2] = quadrant[2];
+      _buffer[2] = _directions[GetIndexOffset(quadrantIndex, 1)];
     }
 
     amount = 3;
@@ -309,12 +379,12 @@ int GetSortedMovePoints(float angleInDegrees)
 
   if (angleFrom0To90 > 50)
   {
-    _buffer[amount] = quadrant[3];
+    _buffer[amount] = _directions[GetIndexOffset(quadrantIndex, 2)];
     amount++;
   }
   else if (angleFrom0To90 < 40)
   {
-    _buffer[amount] = quadrant[4];
+    _buffer[amount] = _directions[GetIndexOffset(quadrantIndex, -2)];
     amount++;
   }
 
@@ -338,21 +408,18 @@ bool TryMakeMove(Cell* cell, float angleInDegrees, Vector2Int exceptPoint)
     Cell* nextCell = _map.GetCell(checkPoint);
 
     if (nextCell != nullptr)
-    {
-      if (!nextCell->MakeMove)
-        return false;
-    }
-    else
-    {
-      _map.SetCellToPos(nullptr, cell->Position);
-      _map.SetCellToPos(cell, checkPoint);
-      cell->Position = checkPoint;
-      cell->MakeMove = true;
-      return true;
-    }
+      continue;
+
+    if (HasInBakeDataAt(checkPoint))
+      return false;
+    
+    _map.SetCellToPos(nullptr, cell->Position);
+    _map.SetCellToPos(cell, checkPoint);
+    cell->Position = checkPoint;
+    
+    return true;
   }
 
-  cell->MakeMove = true;
   return true;
 }
 
@@ -371,27 +438,35 @@ static float DirectionToDegrees(Vector2 direction)
   return angleInDegrees;
 }
 
+Vector2 simulateDirection;
+
+int Sort(Cell*& a, Cell*& b)
+{
+  float valA = a->Position.x * simulateDirection.x + a->Position.y * simulateDirection.y;
+  float valB = b->Position.x * simulateDirection.x + b->Position.y * simulateDirection.y;
+
+  if (valA > valB)
+    return -1;
+
+  if (valA < valB)
+    return 1;
+
+  return 0;
+}
+
 void Simulate(Vector2 direction)
 {
-  for (int i = 0; i < _cells.size(); i++)
-  {
-    _cells[i]->MakeMove = false;
-  }
-  
+  BakeData();
+
+  simulateDirection = direction;
+
+  _cells.sort(Sort);
 
   float angleInDegrees = DirectionToDegrees(direction);
-  int moves = 0;
-
-  do
-  {
-    moves = 0;
 
     for (int i = 0; i < _cells.size(); i++)
     {
       Cell* cell = _cells[i];
-
-      if (cell->MakeMove)
-        continue;
 
       // Try stop falling
       if (cell->IsFalling)
@@ -412,24 +487,19 @@ void Simulate(Vector2 direction)
 
         if (nextPosCell != nullptr)
         {
-          if (nextPosCell->MakeMove)
-          {
-            cell->IsFalling = false;
-
-            // Need add a logic for falling in right place
             if (TryMakeMove(cell, angleInDegrees, nextPos))
             {
-              moves++;
+              cell->IsFalling = false;
             }
-          }
+        }
+        else if (HasInBakeDataAt(nextPos))
+        {
+          continue;
         }
         else
         {
           _map.SetCellToPos(nullptr, cell->Position);
           _map.SetCellToPos(cell, nextPos);
-          moves++;
-
-          cell->MakeMove = true;
 
           if (!cell->IsFalling)
           {
@@ -443,16 +513,13 @@ void Simulate(Vector2 direction)
       }
       else
       {
-        cell->IsFalling = false;
-
         // Need add a logic for falling in right place
         if (TryMakeMove(cell, angleInDegrees, nextPos))
         {
-          moves++;
+          cell->IsFalling = false;
         }
       }
     }
-  } while (moves > 0);
 }
 
 void setup()

@@ -135,7 +135,6 @@ struct Vector2Int
 
 struct Cell
 {
-  bool MakeMove;
   bool IsFalling;
 
   Vector2Int StartFallPosition = Vector2Int();
