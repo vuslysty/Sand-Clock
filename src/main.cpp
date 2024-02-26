@@ -18,8 +18,8 @@ const Vector2Int _directions[] =
 };
 
 Vector2Int* _buffer = (Vector2Int*)malloc(4 * sizeof(Vector2Int));
-
-LinkedList<Cell*> _cells = LinkedList<Cell*>();
+Cell* _cells [64];
+int _cellsCount = 0;
 
 uint32_t** _bakeData = nullptr;
 int bakeDataX;
@@ -35,23 +35,11 @@ int GetShift(Vector2Int pos)
   return pos.x % 8 + (pos.y % 4) * 8;
 }
 
+int count;
+
 void BakeData()
 {
-  if (_bakeData == nullptr)
-  {
-    Vector2Int min = Vector2Int(0, 0);
-    Vector2Int max = Vector2Int(15, 15);
-
-    bakeDataX = max.x - min.x + 1;
-    bakeDataY = max.y - min.y + 1;
-
-    _bakeData = new uint32_t*[bakeDataX];
-
-    for (int i = 0; i < bakeDataX; i++)
-    {
-      _bakeData[i] = new uint32_t[bakeDataY];
-    }
-  }
+  //Serial.println("init set zero");
 
   for (int x = 0; x < bakeDataX; x++)
   {
@@ -61,7 +49,13 @@ void BakeData()
     }
   }
 
-  for (int i = 0; i < _cells.size(); i++)
+  if (count < 2){
+    Serial.println("bake data");
+  
+    count++;
+  }
+
+  for (int i = 0; i < _cellsCount; i++)
   {
     Vector2Int bakeIndex = GetBakeIndex(_cells[i]->Position);
     uint32_t value = _bakeData[bakeIndex.x][bakeIndex.y];
@@ -88,7 +82,7 @@ Vector2 AngleToDirection(float degrees)
   float x = cosf(angleRadians);
   float y = sinf(angleRadians);
 
-  return Vector2(x, y).normalized();
+  return Vector2(x, y);
 }
 
 class RectMap
@@ -293,7 +287,7 @@ const int GetIndexForAngle(float angleInDegrees)
   return 1;
 }
 
-inline int GetIndexOffset(int index, int offset)
+int GetIndexOffset(int index, int offset)
 {
   return ((index + offset) % 8 + 8) % 8;
 }
@@ -454,17 +448,87 @@ int Sort(Cell*& a, Cell*& b)
   return 0;
 }
 
+template<typename T>
+void bubbleSort(T arr[], int size, int (*cmp)(T&, T&)) {
+    for (int i = 0; i < size - 1; ++i) {
+        for (int j = 0; j < size - i - 1; ++j) {
+            if (cmp(arr[j], arr[j + 1]) > 0) {
+                // Обмін елементів, якщо порівняння вказує на необхідність
+                T temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+}
+
+// Функція для обміну двох елементів масиву
+template<typename T>
+void swap(T& a, T& b) {
+    T temp = a;
+    a = b;
+    b = temp;
+}
+
+// Функція для розділення масиву та повернення позиції опорного елемента
+template<typename T>
+int partition(T arr[], int low, int high, int (*cmp)(T&, T&)) {
+    T pivot = arr[high]; // Опорний елемент
+    int i = low - 1; // Індекс меншого елемента
+
+    for (int j = low; j <= high - 1; j++) {
+        if (cmp(arr[j], pivot) < 0) {
+            i++;
+            swap(arr[i], arr[j]);
+        }
+    }
+    swap(arr[i + 1], arr[high]);
+    return i + 1;
+}
+
+// Основна функція QuickSort
+template<typename T>
+void quickSort(T arr[], int low, int high, int (*cmp)(T&, T&)) {
+    if (low < high) {
+        // Розділити та отримати позицію опорного елемента
+        int pi = partition(arr, low, high, cmp);
+
+        // Рекурсивно сортувати дві половини
+        quickSort(arr, low, pi - 1, cmp);
+        quickSort(arr, pi + 1, high, cmp);
+    }
+}
+
+template <typename T>
+void sortArray(T *array, int size, int (*cmp)(T &, T &)) {
+  for (int i = 0; i < size - 1; i++) {
+    for (int j = 0; j < size - i - 1; j++) {
+      if (cmp(array[j], array[j + 1]) > 0) {
+        T temp = array[j];
+        array[j] = array[j + 1];
+        array[j + 1] = temp;
+      }
+    }
+  }
+}
+
 void Simulate(Vector2 direction)
 {
+  //Serial.println("test - 1");
+
   BakeData();
+
+  //Serial.println("test - 2");
 
   simulateDirection = direction;
 
-  _cells.sort(Sort);
+  //bubbleSort(_cells, _cellsCount, Sort);
+  //quickSort(_cells, 0, _cellsCount - 1, Sort);
+  //sortArray(_cells, _cellsCount, Sort);
 
   float angleInDegrees = DirectionToDegrees(direction);
 
-    for (int i = 0; i < _cells.size(); i++)
+    for (int i = 0; i < _cellsCount; i++)
     {
       Cell* cell = _cells[i];
 
@@ -524,47 +588,84 @@ void Simulate(Vector2 direction)
 
 void setup()
 {
+  Serial.begin(9600);
+  Serial.println("test - 0");
+
+  delay(100);
+
+  Serial.println("test - 1");
+
+  delay(100);
+
+  Serial.println("test - 2");
+
+  delay(100);
+
+  Serial.println("test - 3");
+
+  delay(100);
+
   // put your setup code here, to run once:
-  for (int x = 0; x < 8; x++)
+  for (int x = 1; x < 7; x++)
   {
-    for (int y = 10; y < 14; y++)
+    for (int y = 9; y < 15; y++)
     {
       Vector2Int pos = Vector2Int(x, y);
 
       Cell* cell = new Cell();
       cell->Position = pos;
 
-      _cells.add(cell);
+      _cells[_cellsCount] = cell;
+      _cellsCount++;
+
       _map.SetCellToPos(cell, pos);
     }
   }
 
-  Serial.begin(9600);
+  Serial.println("test - 4");
+  delay(100);
+
+  Vector2Int min = Vector2Int(0, 0);
+  Vector2Int max = Vector2Int(15, 15);
+
+  bakeDataX = max.x - min.x + 1;
+  bakeDataY = max.y - min.y + 1;
+
+  _bakeData = new uint32_t*[bakeDataX];
+
+  for (int i = 0; i < bakeDataX; i++)
+  {
+    _bakeData[i] = new uint32_t[bakeDataY];
+  }
+
+  
+  Serial.println("test - 5");
 }
 
 float angle = 90;
 
 void loop()
 {
+  /*
   for (size_t i = 0; i < 10; i++)
   {
     long time = millis();
+
+    //Serial.println("test - 0");
+
     Simulate(AngleToDirection(angle));
+
     long dif = millis() - time;
     Serial.println(dif);
   }
+  
 
   angle += 10;
   return;
-
+*/
 
   for (size_t i = 0; i < 10; i++)
   {
-    Simulate(AngleToDirection(angle));
-
-    Serial.println("asdf");
-    // return;
-
     for (int y = 16; y >= -1; y--)
     {
       for (int x = -1; x <= 16; x++)
@@ -583,14 +684,10 @@ void loop()
       Serial.println();
     }
 
-    delay(1000);
+    Simulate(AngleToDirection(angle));
+
+    delay(200);
   }
 
   angle += 45;
-}
-
-// put function definitions here:
-int myFunction(int x, int y)
-{
-  return x + y;
 }
