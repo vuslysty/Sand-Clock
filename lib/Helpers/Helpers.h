@@ -1,9 +1,10 @@
 // Helpers.h
+#pragma once
+#include <Arduino.h>
 
 #ifndef HELPERS_H
 #define HELPERS_H
 
-// Ваші визначення нових типів даних тут
 struct Vector2
 {
   public:
@@ -144,5 +145,20 @@ struct Cell
     
   Vector2Int Position = Vector2Int();
 };
+
+static Vector2Int _directions[] =
+{
+  Vector2Int(1, 0),
+  Vector2Int(1, 1),
+  Vector2Int(0, 1),
+  Vector2Int(-1, 1),
+  Vector2Int(-1, 0),
+  Vector2Int(-1, -1),
+  Vector2Int(0, -1),
+  Vector2Int(1, -1),
+};
+
+float DirectionToDegrees(Vector2 direction);
+Vector2 AngleToDirection(float degrees);
 
 #endif // HELPERS_H
