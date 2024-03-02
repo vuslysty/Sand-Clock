@@ -3,7 +3,7 @@
 #include <Helpers.h>
 #include <Arduino.h>
 
-Vector2Int* _buffer = (Vector2Int*)malloc(4 * sizeof(Vector2Int));
+Vector2Int _buffer[4];
 Cell* _cells [64];
 int _cellsCount = 0;
 
@@ -18,18 +18,13 @@ Cell* GetCellByIndex(int index)
   return _cells[index];
 }
 
-void ResetSand()
-{
-    
-}
-
 void InitSand()
 {
   _map.AttachGetCell(GetCellByIndex);
 
-  for (int x = 1; x < 7; x++)
+  for (int x = 0; x < 8; x++)
   {
-    for (int y = 9; y < 15; y++)
+    for (int y = 10; y < 15; y++)
     {
       Vector2Int pos = Vector2Int(x, y);
 
@@ -41,6 +36,9 @@ void InitSand()
       _cellsCount++;
 
       _map.SetCellToPos(cell, pos);
+
+      Serial.println(_cellsCount);
+      Serial.println(_map.GetCell(pos)->Position.x);
     }
   }
 
@@ -56,6 +54,29 @@ void InitSand()
   {
     _bakeData[i] = new uint32_t[bakeDataY];
   }
+
+  BakeData();
+}
+
+void ResetSand()
+{
+  for (int i = 0; i < _cellsCount; i++)
+  {
+    Cell* cell = _cells[i];
+
+    cell->IsFalling = false;
+    _map.ClearPos(cell->Position);
+  
+    cell->Position = Vector2Int(i % 8, 15 - (i / 8));
+    _map.SetCellToPos(cell, cell->Position);
+  }
+
+  BakeData();
+}
+
+int GetPartsAmount()
+{
+  return _cellsCount;
 }
 
 bool IsPositionInSand(Vector2Int pos)
@@ -71,6 +92,37 @@ Cell* GetSandCellAtPos(Vector2Int pos)
 Vector2Int GetBakeIndex(Vector2Int pos)
 {
   return Vector2Int(pos.x / 8, pos.y / 4);
+}
+
+uint32_t** GetBakeData()
+{
+    return _bakeData;
+}
+
+bool _transferEnabled;
+
+void SetTransferEnabled(bool enabled)
+{
+  _transferEnabled = enabled;
+}
+
+bool IsTransferEnabled()
+{
+  return _transferEnabled;
+}
+
+bool IsTransferPossible(Vector2Int a, Vector2Int b)
+{
+    if (_transferEnabled)
+      return true;
+
+    if (a.x == 7 && a.y == 8 && b.x == 8 && b.y == 7)
+      return false;
+
+    if (a.x == 8 && a.y == 7 && b.x == 7 && b.y == 8)
+      return false;
+
+    return true;
 }
 
 uint32_t GetShift(Vector2Int pos)
@@ -100,7 +152,7 @@ void BakeData()
 
     uint32_t value = _bakeData[bakeIndex.x][bakeIndex.y];
 
-    value |= 1u << GetShift(_cells[i]->Position);
+    bitWrite(value, GetShift(_cells[i]->Position), 1);
     _bakeData[bakeIndex.x][bakeIndex.y] = value;
   }
 }
@@ -110,7 +162,7 @@ bool HasInBakeDataAt(Vector2Int pos)
   Vector2Int bakeIndex = GetBakeIndex(pos);
   uint32_t value = _bakeData[bakeIndex.x][bakeIndex.y];
 
-  return (value & (1u << GetShift(pos))) != 0;
+  return bitRead(value,GetShift(pos));
 }
 
 Vector2Int GetEndFallPos(Vector2Int startFallPos, Vector2 direction)
@@ -247,7 +299,7 @@ bool TryMakeMove(Cell* cell, float angleInDegrees, Vector2Int exceptPoint)
     if (checkPoint == exceptPoint)
       continue;
 
-    if (!_map.Contains(checkPoint))
+    if (!_map.Contains(checkPoint) || !IsTransferPossible(cell->Position, checkPoint))
       continue;
 
     Cell* nextCell = _map.GetCell(checkPoint);
@@ -366,7 +418,7 @@ void Simulate(Vector2 direction)
                 ? GetLinePointAtIteration(cell->StartFallPosition, direction, cell->FallIndex + 1)
                 : GetLinePointAtIteration(cell->Position, direction, 1);
 
-    if (_map.Contains(nextPos))
+    if (_map.Contains(nextPos) && IsTransferPossible(cell->Position, nextPos))
     {
       Cell *nextPosCell = _map.GetCell(nextPos);
 
