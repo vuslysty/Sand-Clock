@@ -8,6 +8,7 @@
 #define CS_PIN 6
 #define DT_PIN 4
 #define CK_PIN 5
+//#define SPEAKER_PIN 8
 
 // memory
 struct Data {
@@ -127,6 +128,21 @@ void buttons()
     if (down.step(1)) changeBri(-1);
 }
 
+void buzzBuzzer(int buzzFreq, int buzzLength){
+  for (int i = 0; i <buzzLength; i++){
+    digitalWrite (10, HIGH);
+    delay (buzzFreq) ;
+    digitalWrite (10, LOW);
+    delay (buzzFreq) ;
+  }
+  for (int i = 0; i <buzzLength; i++){
+    digitalWrite (10, HIGH);
+    delay (buzzFreq + 1) ;
+    digitalWrite (10, LOW);
+    delay (buzzFreq + 1) ;
+  }
+}
+
 void step()
 {
     uint16_t prd = 255 - mpu.getMag();
@@ -144,7 +160,10 @@ void step()
         bool downAfterState = GetBakeData()[1][0] || GetBakeData()[1][1];
 
         if ((upBeforeState && !upAfterState) || (downBeforeState && !downAfterState))
+        {
           Serial.println("end");
+          //buzzBuzzer(3, 100);
+        }
 
         updateSand();
     }
@@ -155,6 +174,8 @@ void setup()
   Serial.begin(115200);
 
   InitSand();
+
+  pinMode(10, OUTPUT);
 
   Wire.begin();
   mpu.begin();

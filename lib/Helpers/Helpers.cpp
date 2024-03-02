@@ -1,4 +1,3 @@
-#pragma once
 #include <Helpers.h>
 
 float DirectionToDegrees(Vector2 direction)
